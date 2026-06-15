@@ -13,7 +13,6 @@ import {
   Box,
 } from "@mui/material";
 import { LineChart } from "@mui/x-charts/LineChart";
-// Gauge import removed!
 
 // Dynamically import the map to prevent Next.js SSR crashes
 const LiveMap = dynamic(() => import("@/component/mapComponent"), {
@@ -35,8 +34,13 @@ export default function Viewer() {
   const [history, setHistory] = useState([]);
   const [status, setStatus] = useState("Connecting...");
 
+  // --- NEW TIMER STATES ---
+  const [sessionStart, setSessionStart] = useState(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
   const lastFetchedId = useRef(null);
 
+  // 1. DATA POLLING LOOP
   useEffect(() => {
     let isMounted = true;
     let timeoutId = null;
@@ -68,14 +72,18 @@ export default function Viewer() {
 
         if (latest.is_online) {
           setStatus("Live Telemetry Active");
+          // If the timer hasn't started yet, start it now
+          setSessionStart((prev) => prev || new Date());
         } else {
           setStatus("Vehicle Offline");
+          // Reset timer if offline
+          setSessionStart(null);
         }
       } else {
         setStatus("Awaiting Signal...");
       }
 
-      timeoutId = setTimeout(fetchLatestData, 1000);
+      timeoutId = setTimeout(fetchLatestData, 2000);
     };
 
     fetchLatestData();
@@ -85,6 +93,30 @@ export default function Viewer() {
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, [sessionCode]);
+
+  // 2. LIVE TICKING CLOCK
+  useEffect(() => {
+    let interval;
+    if (sessionStart) {
+      interval = setInterval(() => {
+        setElapsedSeconds(
+          Math.floor((Date.now() - sessionStart.getTime()) / 1000),
+        );
+      }, 1000);
+    } else {
+      setElapsedSeconds(0);
+    }
+    return () => clearInterval(interval);
+  }, [sessionStart]);
+
+  // Helper function to format seconds into MM:SS
+  const formatTime = (totalSeconds) => {
+    const m = Math.floor(totalSeconds / 60)
+      .toString()
+      .padStart(2, "0");
+    const s = (totalSeconds % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  };
 
   // ==========================================
   // CHART DATA PREPARATION
@@ -123,8 +155,37 @@ export default function Viewer() {
             Soapbox Telemetry
           </Typography>
 
-          {/* TOP RIGHT CONTROLS (Status + New Compass Arrow) */}
+          {/* TOP RIGHT CONTROLS */}
           <Stack direction="row" alignItems="center" spacing={2}>
+            {/* NEW: LIVE TIMER */}
+            {sessionStart && (
+              <Paper
+                elevation={0}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  px: 2,
+                  py: 0.5,
+                  borderRadius: 5,
+                  border: "1px solid #e0e0e0",
+                  backgroundColor: "white",
+                }}
+              >
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: "bold",
+                    color: "text.secondary",
+                    fontFamily: "monospace",
+                    fontSize: "1rem",
+                  }}
+                >
+                  ⏱️ {formatTime(elapsedSeconds)}
+                </Typography>
+              </Paper>
+            )}
+
+            {/* COMPASS ARROW */}
             {data && (
               <Paper
                 elevation={0}
@@ -148,10 +209,9 @@ export default function Viewer() {
                   sx={{
                     display: "flex",
                     transform: `rotate(${data.heading || 0}deg)`,
-                    transition: "transform 0.3s ease-out", // Smooth spinning animation
+                    transition: "transform 1s linear",
                   }}
                 >
-                  {/* Standard Navigation Arrow SVG */}
                   <svg width="24" height="24" viewBox="0 0 24 24">
                     <path
                       d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"
@@ -178,7 +238,6 @@ export default function Viewer() {
         ) : (
           <Grid container spacing={3}>
             {/* SECTION 1: LIVE SPEED */}
-            {/* Adjusted to take up exactly half the screen (lg: 6) */}
             <Grid item size={{ xs: 12, md: 6, lg: 6 }}>
               <Paper
                 sx={{
@@ -208,14 +267,13 @@ export default function Viewer() {
                         showMark: false,
                       },
                     ]}
-                    margin={{ top: 0, bottom: 0, left: 0, right: 0 }}
+                    margin={{ top: 10, bottom: 40, left: 20, right: 10 }}
                   />
                 </Box>
               </Paper>
             </Grid>
 
             {/* SECTION 2: LIVE ROUTE MAP */}
-            {/* Adjusted to take up exactly half the screen (lg: 6) */}
             <Grid item size={{ xs: 12, md: 6, lg: 6 }}>
               <Paper
                 sx={{
@@ -294,7 +352,7 @@ export default function Viewer() {
                         curve: "catmullRom",
                       },
                     ]}
-                    margin={{ top: 0, bottom: 0, left: 0, right: 0 }}
+                    margin={{ top: 10, bottom: 40, left: 30, right: 10 }}
                   />
                 </Box>
               </Paper>
@@ -338,7 +396,7 @@ export default function Viewer() {
                         showMark: false,
                       },
                     ]}
-                    margin={{ top: 0, bottom: 0, left: 0, right: 0 }}
+                    margin={{ top: 10, bottom: 40, left: 30, right: 10 }}
                   />
                 </Box>
               </Paper>
