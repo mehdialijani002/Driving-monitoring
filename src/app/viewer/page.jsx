@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
 import { createClient } from "@/utils/supabase/client";
 import {
   Container,
@@ -12,11 +13,19 @@ import {
   Box,
 } from "@mui/material";
 import { LineChart } from "@mui/x-charts/LineChart";
-import { ScatterChart } from "@mui/x-charts/ScatterChart";
 import { Gauge, gaugeClasses } from "@mui/x-charts/Gauge";
 
-const supabase = createClient();
+// Dynamically import the map to prevent Next.js SSR crashes
+const LiveMap = dynamic(() => import("./LiveMap"), {
+  ssr: false,
+  loading: () => (
+    <Typography color="text.secondary" align="center" mt={10}>
+      Loading Map Engine...
+    </Typography>
+  ),
+});
 
+const supabase = createClient();
 const MAX_HISTORY_LENGTH = 60;
 
 export default function Viewer() {
@@ -66,7 +75,6 @@ export default function Viewer() {
         setStatus("Awaiting Signal...");
       }
 
-      // Always poll exactly every 5 seconds
       timeoutId = setTimeout(fetchLatestData, 5000);
     };
 
@@ -91,16 +99,13 @@ export default function Viewer() {
     return Number((mag / 9.81).toFixed(2));
   });
 
-  const gpsPathData = history
-    .filter((d) => d.longitude && d.latitude)
-    .map((d, index) => ({
-      id: d.id || index.toString(),
-      x: d.longitude,
-      y: d.latitude,
-    }));
-
   const brakingData = history.map((d) => (d.is_braking ? 1 : 0));
   const suddenStopData = history.map((d) => (d.sudden_stop ? 1 : 0));
+
+  // Format data specifically for the new Leaflet map
+  const mapPathData = history
+    .filter((d) => d.latitude && d.longitude)
+    .map((d) => ({ lat: d.latitude, lng: d.longitude }));
 
   return (
     <Container
@@ -132,8 +137,8 @@ export default function Viewer() {
           </Paper>
         ) : (
           <Grid container spacing={3}>
-            {/* SECTION 1: LIVE SPEED (Line Chart) */}
-            <Grid item size={{ xs: 12, md: 6, lg: 4 }}>
+            {/* SECTION 1: LIVE SPEED */}
+            <Grid item xs={12} md={6} lg={4}>
               <Paper
                 sx={{
                   p: 3,
@@ -168,8 +173,8 @@ export default function Viewer() {
               </Paper>
             </Grid>
 
-            {/* SECTION 2: HEADING (Gauge) */}
-            <Grid item size={{ xs: 12, md: 6, lg: 4 }}>
+            {/* SECTION 2: HEADING */}
+            <Grid item xs={12} md={6} lg={4}>
               <Paper
                 sx={{
                   p: 3,
@@ -202,27 +207,46 @@ export default function Viewer() {
               </Paper>
             </Grid>
 
-            {/* SECTION 3: GPS TRAJECTORY (Scatter Chart as a Map) */}
-            <Grid item size={{ xs: 12, md: 6, lg: 4 }}>
+            {/* SECTION 3: REAL OPENSTREETMAP (Leaflet Integration) */}
+            <Grid item xs={12} md={6} lg={4}>
               <Paper
                 sx={{
                   p: 3,
-                  height: 300,
+                  height: 350,
                   display: "flex",
                   flexDirection: "column",
                 }}
               >
-                <Typography variant="h6" color="text.secondary" gutterBottom>
-                  GPS Trajectory (Local Path)
-                </Typography>
-                <Box sx={{ flexGrow: 1 }}>
-                  {gpsPathData.length > 0 ? (
-                    <ScatterChart
-                      series={[{ data: gpsPathData, color: "#2e7d32" }]}
-                      margin={{ top: 10, bottom: 20, left: 20, right: 10 }}
-                      xAxis={[{ disableTicks: true, disableLine: true }]}
-                      yAxis={[{ disableTicks: true, disableLine: true }]}
-                    />
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  gutterBottom
+                >
+                  <Typography variant="h6" color="text.secondary">
+                    Live Route Map
+                  </Typography>
+                  {mapPathData.length > 0 && (
+                    <Typography
+                      variant="caption"
+                      color="primary"
+                      fontWeight="bold"
+                    >
+                      {mapPathData[mapPathData.length - 1].lat.toFixed(5)},{" "}
+                      {mapPathData[mapPathData.length - 1].lng.toFixed(5)}
+                    </Typography>
+                  )}
+                </Stack>
+                <Box
+                  sx={{
+                    flexGrow: 1,
+                    borderRadius: 2,
+                    overflow: "hidden",
+                    border: "1px solid #e0e0e0",
+                  }}
+                >
+                  {mapPathData.length > 0 ? (
+                    <LiveMap pathData={mapPathData} />
                   ) : (
                     <Typography color="text.secondary" align="center" mt={10}>
                       Acquiring GPS Lock...
@@ -232,8 +256,8 @@ export default function Viewer() {
               </Paper>
             </Grid>
 
-            {/* SECTION 4: G-FORCE & ACCELERATION (Line Chart) */}
-            <Grid item size={{ xs: 12, md: 6, lg: 4 }}>
+            {/* SECTION 4: G-FORCE */}
+            <Grid item xs={12} md={6} lg={4}>
               <Paper
                 sx={{
                   p: 3,
@@ -268,8 +292,8 @@ export default function Viewer() {
               </Paper>
             </Grid>
 
-            {/* SECTION 5: DRIVING EVENTS (Step Chart) */}
-            <Grid item size={{ xs: 12, md: 6, lg: 4 }}>
+            {/* SECTION 5: SAFETY EVENTS */}
+            <Grid item xs={12} md={6} lg={4}>
               <Paper
                 sx={{
                   p: 3,
