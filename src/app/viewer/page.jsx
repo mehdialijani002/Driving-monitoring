@@ -13,7 +13,7 @@ import {
   Box,
 } from "@mui/material";
 import { LineChart } from "@mui/x-charts/LineChart";
-import { Gauge, gaugeClasses } from "@mui/x-charts/Gauge";
+// Gauge import removed!
 
 // Dynamically import the map to prevent Next.js SSR crashes
 const LiveMap = dynamic(() => import("@/component/mapComponent"), {
@@ -75,7 +75,7 @@ export default function Viewer() {
         setStatus("Awaiting Signal...");
       }
 
-      timeoutId = setTimeout(fetchLatestData, 5000);
+      timeoutId = setTimeout(fetchLatestData, 1000);
     };
 
     fetchLatestData();
@@ -102,7 +102,6 @@ export default function Viewer() {
   const brakingData = history.map((d) => (d.is_braking ? 1 : 0));
   const suddenStopData = history.map((d) => (d.sudden_stop ? 1 : 0));
 
-  // Format data specifically for the new Leaflet map
   const mapPathData = history
     .filter((d) => d.latitude && d.longitude)
     .map((d) => ({ lat: d.latitude, lng: d.longitude }));
@@ -123,12 +122,53 @@ export default function Viewer() {
           <Typography variant="h4" fontWeight="bold" color="primary.main">
             Soapbox Telemetry
           </Typography>
-          <Chip
-            label={status}
-            color={data?.is_online ? "success" : "default"}
-            variant="filled"
-            sx={{ fontWeight: "bold", px: 2 }}
-          />
+
+          {/* TOP RIGHT CONTROLS (Status + New Compass Arrow) */}
+          <Stack direction="row" alignItems="center" spacing={2}>
+            {data && (
+              <Paper
+                elevation={0}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  px: 2,
+                  py: 0.5,
+                  borderRadius: 5,
+                  border: "1px solid #e0e0e0",
+                  backgroundColor: "white",
+                }}
+              >
+                <Typography
+                  variant="body2"
+                  sx={{ mr: 1, fontWeight: "bold", color: "text.secondary" }}
+                >
+                  {data.heading?.toFixed(0)}°
+                </Typography>
+                <Box
+                  sx={{
+                    display: "flex",
+                    transform: `rotate(${data.heading || 0}deg)`,
+                    transition: "transform 0.3s ease-out", // Smooth spinning animation
+                  }}
+                >
+                  {/* Standard Navigation Arrow SVG */}
+                  <svg width="24" height="24" viewBox="0 0 24 24">
+                    <path
+                      d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"
+                      fill="#ed6c02"
+                    />
+                  </svg>
+                </Box>
+              </Paper>
+            )}
+
+            <Chip
+              label={status}
+              color={data?.is_online ? "success" : "default"}
+              variant="filled"
+              sx={{ fontWeight: "bold", px: 2 }}
+            />
+          </Stack>
         </Stack>
 
         {!data ? (
@@ -138,7 +178,8 @@ export default function Viewer() {
         ) : (
           <Grid container spacing={3}>
             {/* SECTION 1: LIVE SPEED */}
-            <Grid item xs={12} md={6} lg={4}>
+            {/* Adjusted to take up exactly half the screen (lg: 6) */}
+            <Grid item size={{ xs: 12, md: 6, lg: 6 }}>
               <Paper
                 sx={{
                   p: 3,
@@ -167,48 +208,15 @@ export default function Viewer() {
                         showMark: false,
                       },
                     ]}
-                    margin={{ top: 10, bottom: 40, left: 40, right: 10 }}
+                    margin={{ top: 0, bottom: 0, left: 0, right: 0 }}
                   />
                 </Box>
               </Paper>
             </Grid>
 
-            {/* SECTION 2: HEADING */}
-            <Grid item xs={12} md={6} lg={4}>
-              <Paper
-                sx={{
-                  p: 3,
-                  height: 350,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                }}
-              >
-                <Typography variant="h6" color="text.secondary" gutterBottom>
-                  Current Heading
-                </Typography>
-                <Box sx={{ flexGrow: 1, width: "100%", position: "relative" }}>
-                  <Gauge
-                    value={data.heading || 0}
-                    valueMin={0}
-                    valueMax={360}
-                    startAngle={-180}
-                    endAngle={180}
-                    text={`${data.heading?.toFixed(0)}°`}
-                    sx={{
-                      [`& .${gaugeClasses.valueText}`]: {
-                        fontSize: 40,
-                        fontWeight: "bold",
-                      },
-                      [`& .${gaugeClasses.valueArc}`]: { fill: "#ed6c02" },
-                    }}
-                  />
-                </Box>
-              </Paper>
-            </Grid>
-
-            {/* SECTION 3: REAL OPENSTREETMAP (Leaflet Integration) */}
-            <Grid item xs={12} md={6} lg={4}>
+            {/* SECTION 2: LIVE ROUTE MAP */}
+            {/* Adjusted to take up exactly half the screen (lg: 6) */}
+            <Grid item size={{ xs: 12, md: 6, lg: 6 }}>
               <Paper
                 sx={{
                   p: 3,
@@ -256,8 +264,8 @@ export default function Viewer() {
               </Paper>
             </Grid>
 
-            {/* SECTION 4: G-FORCE */}
-            <Grid item xs={12} md={6} lg={4}>
+            {/* SECTION 3: G-FORCE */}
+            <Grid item size={{ xs: 12, md: 6, lg: 6 }}>
               <Paper
                 sx={{
                   p: 3,
@@ -286,14 +294,14 @@ export default function Viewer() {
                         curve: "catmullRom",
                       },
                     ]}
-                    margin={{ top: 10, bottom: 40, left: 40, right: 10 }}
+                    margin={{ top: 0, bottom: 0, left: 0, right: 0 }}
                   />
                 </Box>
               </Paper>
             </Grid>
 
-            {/* SECTION 5: SAFETY EVENTS */}
-            <Grid item xs={12} md={6} lg={4}>
+            {/* SECTION 4: SAFETY EVENTS */}
+            <Grid item size={{ xs: 12, md: 6, lg: 6 }}>
               <Paper
                 sx={{
                   p: 3,
@@ -330,7 +338,7 @@ export default function Viewer() {
                         showMark: false,
                       },
                     ]}
-                    margin={{ top: 10, bottom: 40, left: 20, right: 10 }}
+                    margin={{ top: 0, bottom: 0, left: 0, right: 0 }}
                   />
                 </Box>
               </Paper>
