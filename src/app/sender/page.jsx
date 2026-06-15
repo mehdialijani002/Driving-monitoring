@@ -1,123 +1,94 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { createClient } from "@/utils/supabase/client";
-import {
-  Container,
-  Typography,
-  Stack,
-  Paper,
-  Chip,
-  Button,
-} from "@mui/material";
+import { Container, Typography, Stack, Chip, Button } from "@mui/material";
 
 const supabase = createClient();
 
 export default function Sender() {
   const [sessionCode] = useState("TEST124");
-  const [status, setStatus] = useState("آماده شروع...");
+  const [status, setStatus] = useState("Ready...");
   const [isRunning, setIsRunning] = useState(false);
 
   const watchIdRef = useRef(null);
   const intervalRef = useRef(null);
-  const lastUpdateRef = useRef(0);
 
-  const updateDrivingData = async (data) => {
+  const lastGPS = useRef({
+    latitude: null,
+    longitude: null,
+    speed_ms: 0,
+    heading: 0,
+  });
+
+  const motionRef = useRef({});
+
+  // ---------------- SEND TO SUPABASE ----------------
+  const sendData = async (payload) => {
     try {
-      await supabase.from("driving_data").upsert(
-        {
-          session_code: sessionCode,
-          ...data,
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: "session_code",
-        },
-      );
+      await supabase.from("driving_data").insert({
+        session_code: sessionCode,
+        ...payload,
+        created_at: new Date().toISOString(),
+      });
     } catch (err) {
-      console.error(err);
+      console.error("Failed to send data:", err);
     }
   };
 
-  // ================= START =================
+  // ---------------- MOTION HANDLER ----------------
+  const handleMotion = useCallback((e) => {
+    const acc = e.accelerationIncludingGravity;
+    if (!acc) return;
+
+    motionRef.current = {
+      acc_x: acc.x || 0,
+      acc_y: acc.y || 0,
+      acc_z: acc.z || 0,
+      is_braking: (acc.y || 0) < -2,
+      sudden_stop:
+        Math.sqrt((acc.x || 0) ** 2 + (acc.y || 0) ** 2 + (acc.z || 0) ** 2) >
+        22,
+    };
+  }, []);
+
+  // ---------------- START ----------------
   const startSender = () => {
     setIsRunning(true);
-    setStatus("در حال ارسال...");
+    setStatus("GPS tracking...");
 
-    // mark online
-    updateDrivingData({
-      is_online: true,
-    });
-
-    // GPS
     if (navigator.geolocation) {
       watchIdRef.current = navigator.geolocation.watchPosition(
         (pos) => {
-          if (!isRunning) return;
-
           const { latitude, longitude, speed, heading } = pos.coords;
-
-          updateDrivingData({
+          lastGPS.current = {
             latitude,
             longitude,
-            speed_kmh: speed ? (speed * 3.6).toFixed(1) : 0,
+            speed_ms: speed || 0, // Native m/s
             heading: heading || 0,
-            is_online: true,
-          });
-
-          setStatus("ارسال GPS...");
+          };
         },
-        (err) => {
-          setStatus("GPS Error: " + err.message);
-        },
-        {
-          enableHighAccuracy: true,
-          maximumAge: 0,
-        },
+        (err) => setStatus("GPS error: " + err.message),
+        { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 },
       );
     }
 
-    // Motion
-    const handleMotion = (e) => {
-      if (!isRunning) return;
-
-      const now = Date.now();
-      if (now - lastUpdateRef.current < 500) return;
-      lastUpdateRef.current = now;
-
-      const acc = e.accelerationIncludingGravity;
-      if (!acc) return;
-
-      const totalAcc = Math.sqrt(
-        (acc.x || 0) ** 2 + (acc.y || 0) ** 2 + (acc.z || 0) ** 2,
-      );
-
-      updateDrivingData({
-        acc_x: acc.x || 0,
-        acc_y: acc.y || 0,
-        acc_z: acc.z || 0,
-        is_braking: (acc.y || 0) < -2,
-        sudden_stop: totalAcc > 22,
-        is_online: true,
-      });
-    };
-
     window.addEventListener("devicemotion", handleMotion);
 
-    // heartbeat UI
+    // Stream 1 row every 1 second
     intervalRef.current = setInterval(() => {
-      setStatus("در حال ارسال realtime...");
+      sendData({
+        ...lastGPS.current,
+        ...motionRef.current,
+        is_online: true,
+      });
     }, 1000);
   };
 
-  // ================= STOP =================
+  // ---------------- STOP ----------------
   const stopSender = async () => {
     setIsRunning(false);
-    setStatus("متوقف شد ❌");
-
-    await updateDrivingData({
-      is_online: false,
-    });
+    setStatus("Stopped");
 
     if (watchIdRef.current) {
       navigator.geolocation.clearWatch(watchIdRef.current);
@@ -129,52 +100,37 @@ export default function Sender() {
       intervalRef.current = null;
     }
 
-    window.removeEventListener("devicemotion", () => {});
+    window.removeEventListener("devicemotion", handleMotion);
+
+    // Send offline ping
+    await sendData({ is_online: false });
   };
 
   return (
     <Container maxWidth="sm" sx={{ py: 6 }}>
       <Stack spacing={3}>
-        <Typography variant="h4" fontWeight={700}>
-          📱 Sender (راننده)
-        </Typography>
-
+        <Typography variant="h4">📱 Soapbox Sender</Typography>
         <Typography>
-          Session Code: <strong>{sessionCode}</strong>
+          Session: <b>{sessionCode}</b>
         </Typography>
-
-        <Chip
-          label={status}
-          color={isRunning ? "success" : "default"}
-          variant="outlined"
-        />
-
-        {/* Controls */}
+        <Chip label={status} color={isRunning ? "success" : "default"} />
         <Stack direction="row" spacing={2}>
           <Button
-            variant="contained"
-            color="success"
             onClick={startSender}
             disabled={isRunning}
-          >
-            Start Sender
-          </Button>
-
-          <Button
             variant="contained"
-            color="error"
+          >
+            Start
+          </Button>
+          <Button
             onClick={stopSender}
             disabled={!isRunning}
+            color="error"
+            variant="contained"
           >
-            Stop Sender
+            Stop
           </Button>
         </Stack>
-
-        <Paper elevation={3} sx={{ p: 3 }}>
-          <Stack spacing={2}>
-            <Typography>این صفحه را روی گوشی راننده باز نگه دار</Typography>
-          </Stack>
-        </Paper>
       </Stack>
     </Container>
   );
