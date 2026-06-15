@@ -16,7 +16,7 @@ import { LineChart } from "@mui/x-charts/LineChart";
 import { Gauge, gaugeClasses } from "@mui/x-charts/Gauge";
 
 // Dynamically import the map to prevent Next.js SSR crashes
-const LiveMap = dynamic(() => import("./LiveMap"), {
+const LiveMap = dynamic(() => import("@/component/mapComponent"), {
   ssr: false,
   loading: () => (
     <Typography color="text.secondary" align="center" mt={10}>
