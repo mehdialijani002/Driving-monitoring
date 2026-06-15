@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 import { createClient } from "@/utils/supabase/client";
 import {
   Container,
@@ -19,12 +19,13 @@ export default function Sender() {
   const [status, setStatus] = useState("Ready...");
   const [isRunning, setIsRunning] = useState(false);
 
-  // State strictly for local UI debugging so you can see what the phone senses
+  // Added "heading" to the local debugger state
   const [localData, setLocalData] = useState({
     speed: 0,
     lat: 0,
     lng: 0,
     acc: 0,
+    heading: 0,
     braking: false,
   });
 
@@ -35,7 +36,7 @@ export default function Sender() {
     latitude: null,
     longitude: null,
     speed_ms: 0,
-    heading: 0,
+    heading: 0, // This will now be powered by the compass
   });
 
   const motionRef = useRef({});
@@ -53,6 +54,25 @@ export default function Sender() {
     }
   };
 
+  // ---------------- COMPASS HANDLER ----------------
+  const handleOrientation = useCallback((e) => {
+    let compassHeading = null;
+
+    // iOS provides a dedicated webkit property for compass heading
+    if (e.webkitCompassHeading) {
+      compassHeading = e.webkitCompassHeading;
+    }
+    // Android uses absolute alpha (which is inverted)
+    else if (e.absolute && e.alpha !== null) {
+      compassHeading = 360 - e.alpha;
+    }
+
+    if (compassHeading !== null) {
+      lastGPS.current.heading = compassHeading;
+      setLocalData((prev) => ({ ...prev, heading: compassHeading }));
+    }
+  }, []);
+
   // ---------------- MOTION HANDLER ----------------
   const handleMotion = useCallback((e) => {
     const acc = e.accelerationIncludingGravity;
@@ -62,42 +82,62 @@ export default function Sender() {
     const acc_y = acc.y || 0;
     const acc_z = acc.z || 0;
 
-    // G-Force Magnitude
     const magnitude = Math.sqrt(acc_x ** 2 + acc_y ** 2 + acc_z ** 2);
-    const isBraking = acc_y < -2; // Shaking the phone forward will trigger this
+    const isBraking = acc_y < -2;
 
     motionRef.current = {
       acc_x,
       acc_y,
       acc_z,
       is_braking: isBraking,
-      sudden_stop: magnitude > 22, // Shaking violently will trigger this
+      sudden_stop: magnitude > 22,
     };
 
-    // Update debug UI
     setLocalData((prev) => ({ ...prev, acc: magnitude, braking: isBraking }));
   }, []);
 
   // ---------------- START ----------------
-  const startSender = () => {
+  // Made this function async to handle Apple's permission requests
+  const startSender = async () => {
     setIsRunning(true);
-    setStatus("Acquiring GPS...");
+    setStatus("Acquiring Sensors...");
 
+    // 1. Request Compass Permission (Crucial for iPhones)
+    if (
+      typeof DeviceOrientationEvent !== "undefined" &&
+      typeof DeviceOrientationEvent.requestPermission === "function"
+    ) {
+      try {
+        const permissionState =
+          await DeviceOrientationEvent.requestPermission();
+        if (permissionState === "granted") {
+          window.addEventListener("deviceorientation", handleOrientation);
+        } else {
+          setStatus("Compass permission denied");
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    } else {
+      // Android / Older browsers
+      window.addEventListener("deviceorientationabsolute", handleOrientation);
+      window.addEventListener("deviceorientation", handleOrientation);
+    }
+
+    // 2. Start GPS
     if (navigator.geolocation) {
       watchIdRef.current = navigator.geolocation.watchPosition(
         (pos) => {
-          const { latitude, longitude, speed, heading, accuracy } = pos.coords;
+          const { latitude, longitude, speed, accuracy } = pos.coords;
 
           lastGPS.current = {
+            ...lastGPS.current, // Keep the compass heading intact
             latitude,
             longitude,
-            speed_ms: speed || 0, // Will be 0 if walking!
-            heading: heading || 0,
+            speed_ms: speed || 0,
           };
 
-          setStatus(`GPS Locked (Accuracy: ${Math.round(accuracy)}m)`);
-
-          // Update debug UI
+          setStatus(`Sensors Locked (Accuracy: ${Math.round(accuracy)}m)`);
           setLocalData((prev) => ({
             ...prev,
             speed: speed || 0,
@@ -110,8 +150,10 @@ export default function Sender() {
       );
     }
 
+    // 3. Start Accelerometer
     window.addEventListener("devicemotion", handleMotion);
 
+    // 4. Start Streaming
     intervalRef.current = setInterval(() => {
       sendData({
         ...lastGPS.current,
@@ -136,6 +178,9 @@ export default function Sender() {
     }
 
     window.removeEventListener("devicemotion", handleMotion);
+    window.removeEventListener("deviceorientation", handleOrientation);
+    window.removeEventListener("deviceorientationabsolute", handleOrientation);
+
     await sendData({ is_online: false });
   };
 
@@ -176,10 +221,6 @@ export default function Sender() {
             <Typography variant="h6" color="primary" gutterBottom>
               Raw Sensor Debugger
             </Typography>
-            <Typography variant="body2" color="text.secondary" paragraph>
-              If values here are 0, your phone is filtering out the movement.
-              Try a bicycle or shake the phone!
-            </Typography>
 
             <Grid container spacing={2}>
               <Grid item xs={6}>
@@ -192,26 +233,27 @@ export default function Sender() {
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="caption" color="text.secondary">
+                  Compass Angle
+                </Typography>
+                <Typography variant="h5" fontWeight="bold" color="secondary">
+                  {localData.heading.toFixed(0)}°
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="caption" color="text.secondary">
                   G-Force Magnitude
                 </Typography>
-                <Typography variant="h5" fontWeight="bold">
+                <Typography variant="h6">
                   {(localData.acc / 9.81).toFixed(2)} G
                 </Typography>
               </Grid>
-              <Grid item xs={12}>
+              <Grid item xs={6}>
                 <Typography variant="caption" color="text.secondary">
-                  GPS Coordinates
+                  GPS Status
                 </Typography>
-                <Typography variant="body1">
-                  {localData.lat.toFixed(5)}, {localData.lng.toFixed(5)}
+                <Typography variant="h6">
+                  {localData.lat !== 0 ? "Locked" : "Searching..."}
                 </Typography>
-              </Grid>
-              <Grid item xs={12}>
-                <Chip
-                  label={localData.braking ? "BRAKING TRIGGERED" : "No Braking"}
-                  color={localData.braking ? "error" : "success"}
-                  variant={localData.braking ? "filled" : "outlined"}
-                />
               </Grid>
             </Grid>
           </Paper>
