@@ -14,7 +14,6 @@ import {
 } from "@mui/material";
 import { LineChart } from "@mui/x-charts/LineChart";
 
-// Dynamically import the map to prevent Next.js SSR crashes
 const LiveMap = dynamic(() => import("@/component/mapComponent"), {
   ssr: false,
   loading: () => (
@@ -40,7 +39,6 @@ export default function Viewer() {
 
   const lastFetchedId = useRef(null);
 
-  // 1. DATA POLLING LOOP
   useEffect(() => {
     let isMounted = true;
     let timeoutId = null;
