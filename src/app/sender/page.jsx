@@ -196,7 +196,7 @@ export default function Sender() {
           justifyContent="center"
           sx={{ width: "100%", textAlign: "center", mb: 2 }}
         >
-          <Image src="/var_logo.png" alt="Logo" width={200} height={170} />
+          <Image src="/var_logo.png" alt="Logo" width={200} height={180} />
           <Typography variant="h5" fontWeight="bold" sx={{ mt: 1 }}>
             Soapbox Driver
           </Typography>
