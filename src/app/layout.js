@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import Providers from "./provider";
 
 export const metadata = {
   title: "Navigation App",
@@ -8,7 +8,9 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body style={{ margin: 0 }}>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

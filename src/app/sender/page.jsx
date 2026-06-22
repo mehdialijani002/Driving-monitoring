@@ -10,7 +10,9 @@ import {
   Button,
   Paper,
   Grid,
+  Box,
 } from "@mui/material";
+import Image from "next/image";
 
 const supabase = createClient();
 
@@ -186,11 +188,22 @@ export default function Sender() {
 
   return (
     <Container maxWidth="sm" sx={{ py: 6 }}>
-      <Stack spacing={3}>
-        <Typography variant="h4">📱 Soapbox Sender</Typography>
-        <Typography>
-          Session: <b>{sessionCode}</b>
-        </Typography>
+      <Stack sx={{ display: "flex" }} spacing={2}>
+        <Box
+          display="flex"
+          flexDirection="column"
+          alignItems="center"
+          justifyContent="center"
+          sx={{ width: "100%", textAlign: "center", mb: 2 }}
+        >
+          <Image src="/var_logo.png" alt="Logo" width={200} height={170} />
+          <Typography variant="h5" fontWeight="bold" sx={{ mt: 1 }}>
+            Soapbox Driver
+          </Typography>
+          <Typography variant="subtitle2" color="text.secondary">
+            Session: <b>{sessionCode}</b>
+          </Typography>
+        </Box>
         <Chip label={status} color={isRunning ? "success" : "default"} />
 
         <Stack direction="row" spacing={2}>
@@ -217,7 +230,7 @@ export default function Sender() {
 
         {/* --- RAW DEBUGGER UI --- */}
         {isRunning && (
-          <Paper sx={{ p: 3, mt: 4, bgcolor: "#f8f9fa" }}>
+          <Paper sx={{ p: 3, mt: 4 }}>
             <Typography variant="h6" color="primary" gutterBottom>
               Raw Sensor Debugger
             </Typography>

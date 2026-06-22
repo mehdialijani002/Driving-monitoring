@@ -13,6 +13,7 @@ import {
   Box,
 } from "@mui/material";
 import { LineChart } from "@mui/x-charts/LineChart";
+import Image from "next/image";
 
 const LiveMap = dynamic(() => import("@/component/mapComponent"), {
   ssr: false,
@@ -137,25 +138,28 @@ export default function Viewer() {
     .map((d) => ({ lat: d.latitude, lng: d.longitude }));
 
   return (
-    <Container
-      maxWidth="xl"
-      sx={{ py: 4, backgroundColor: "#f5f7fa", minHeight: "100vh" }}
-    >
+    <Container maxWidth="xl" sx={{ py: 2, minHeight: "100vh" }}>
       <Stack spacing={4}>
-        {/* HEADER */}
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          justifyContent="space-between"
-          alignItems="center"
-          spacing={2}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
         >
-          <Typography variant="h4" fontWeight="bold" color="primary.main">
-            Soapbox Telemetry
-          </Typography>
-
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <Image src="/var_logo.png" alt="Logo" width={150} height={150} />
+            <Typography variant="h6" fontWeight="bold" color="primary.main">
+              Soapbox Telemetry
+              <Typography variant="subtitle2" color="text.secondary">
+                Group 4 - Digital Car / Innovation Management & Customer Design
+                (SS26)
+              </Typography>
+            </Typography>
+          </Box>
           {/* TOP RIGHT CONTROLS */}
-          <Stack direction="row" alignItems="center" spacing={2}>
-            {/* NEW: LIVE TIMER */}
+          {/* NEW: LIVE TIMER */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
             {sessionStart && (
               <Paper
                 elevation={0}
@@ -166,7 +170,6 @@ export default function Viewer() {
                   py: 0.5,
                   borderRadius: 5,
                   border: "1px solid #e0e0e0",
-                  backgroundColor: "white",
                 }}
               >
                 <Typography
@@ -194,7 +197,6 @@ export default function Viewer() {
                   py: 0.5,
                   borderRadius: 5,
                   border: "1px solid #e0e0e0",
-                  backgroundColor: "white",
                 }}
               >
                 <Typography
@@ -226,9 +228,8 @@ export default function Viewer() {
               variant="filled"
               sx={{ fontWeight: "bold", px: 2 }}
             />
-          </Stack>
-        </Stack>
-
+          </Box>
+        </Box>
         {!data ? (
           <Paper sx={{ p: 4, textAlign: "center" }}>
             Waiting for vehicle data...
