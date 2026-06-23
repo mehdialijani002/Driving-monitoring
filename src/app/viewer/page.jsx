@@ -152,7 +152,7 @@ export default function Viewer() {
             <Typography variant="h6" fontWeight="bold" color="primary.main">
               Soapbox Telemetry
               <Typography variant="subtitle2" color="text.secondary">
-                Group 4 - Digital Car / Innovation Management & Customer Design
+                Group C - Digital Car / Innovation Management & Customer Design
                 (SS26)
               </Typography>
             </Typography>
