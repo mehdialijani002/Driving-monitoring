@@ -134,3 +134,8 @@ _(For production, deploy to Vercel, Netlify, or any host that provides standard 
 2. Open the **Sender** page on the phone and tap **"Start Sending"**.
 3. Open the **Viewer** dashboard on your pit-wall laptop.
 4. As the vehicle moves, the dashboard will automatically pick up the live signal and begin graphing the physics of the run!
+
+
+Developed by Mehdi Alijanibaei
+mehdi.alijanibaei@stud.th-deg.de
+
